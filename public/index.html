@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Number Info Lookup</title>
+
+  <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+
+  <main class="container">
+
+    <header class="hero">
+      <div class="logo">E</div>
+
+      <h1>Number Info Lookup</h1>
+
+      <p>
+        Enter a phone number to retrieve available information.
+      </p>
+    </header>
+
+
+    <section class="search-card">
+
+      <form id="searchForm">
+
+        <div class="search-row">
+
+          <input
+            id="number"
+            type="tel"
+            placeholder="Enter phone number..."
+            autocomplete="off"
+            required
+          >
+
+          <button id="searchBtn" type="submit">
+            Search
+          </button>
+
+        </div>
+
+      </form>
+
+      <div id="message"></div>
+
+    </section>
+
+
+    <section id="result" class="result hidden">
+
+      <div class="card">
+        <h2>📱 Number Information</h2>
+
+        <div id="numberInfo" class="grid"></div>
+      </div>
+
+
+      <div id="callerCard" class="card hidden">
+        <h2>👤 Caller Information</h2>
+
+        <div id="callerInfo"></div>
+      </div>
+
+
+      <div id="socialCard" class="card hidden">
+        <h2>🔗 Social Links</h2>
+
+        <div id="socialLinks" class="links"></div>
+      </div>
+
+
+      <div id="truecallerCard" class="card hidden">
+        <h2>📞 Truecaller</h2>
+
+        <div id="truecallerInfo"></div>
+      </div>
+
+
+      <div class="card">
+        <h2>⚡ Developer Information</h2>
+
+        <div class="grid">
+
+          <div class="item">
+            <span>Developer</span>
+            <strong>Efty</strong>
+          </div>
+
+          <div class="item">
+            <span>Telegram</span>
+            <strong>@Efty67</strong>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+
+    <footer>
+      Developed by <strong>Efty</strong>
+      <br>
+      Telegram: @Efty67
+    </footer>
+
+  </main>
+
+
+<script>
+const form = document.getElementById("searchForm");
+const input = document.getElementById("number");
+const button = document.getElementById("searchBtn");
+const message = document.getElementById("message");
+
+const result = document.getElementById("result");
+const numberInfo = document.getElementById("numberInfo");
+
+const callerCard = document.getElementById("callerCard");
+const callerInfo = document.getElementById("callerInfo");
+
+const socialCard = document.getElementById("socialCard");
+const socialLinks = document.getElementById("socialLinks");
+
+const truecallerCard = document.getElementById("truecallerCard");
+const truecallerInfo = document.getElementById("truecallerInfo");
+
+
+function escapeHTML(value) {
+  return String(value ?? "Unknown")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+
+function showMessage(text, type = "") {
+  message.className = type;
+  message.textContent = text;
+}
+
+
+function createItem(label, value) {
+  return `
+    <div class="item">
+      <span>${escapeHTML(label)}</span>
+      <strong>${escapeHTML(value || "Unknown")}</strong>
+    </div>
+  `;
+}
+
+
+form.addEventListener("submit", async (event) => {
+
+  event.preventDefault();
+
+  const number = input.value.trim();
+
+  if (!number) {
+    showMessage("Please enter a phone number.", "error");
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = "Searching...";
+  showMessage("");
+
+  result.classList.add("hidden");
+
+  callerCard.classList.add("hidden");
+  socialCard.classList.add("hidden");
+  truecallerCard.classList.add("hidden");
+
+  try {
+
+    const response = await fetch(
+      `/api/number-info?number=${encodeURIComponent(number)}`
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.message || "Unable to retrieve information."
+      );
+    }
+
+    renderResult(data);
+
+    result.classList.remove("hidden");
+
+    showMessage("Information loaded successfully.", "success");
+
+  } catch (error) {
+
+    showMessage(
+      error.message || "Something went wrong.",
+      "error"
+    );
+
+  } finally {
+
+    button.disabled = false;
+    button.textContent = "Search";
+
+  }
+
+});
+
+
+function renderResult(data) {
+
+  const info = data.info || {};
+
+  numberInfo.innerHTML = `
+    ${createItem("Number", info.number)}
+    ${createItem("Formatted Number", info.formatted_number)}
+    ${createItem("Country", info.country)}
+    ${createItem("Country Code", info.country_code)}
+    ${createItem("Operator", info.operator)}
+    ${createItem("API Status", data.status)}
+  `;
+
+
+  /*
+   * Display caller data returned by the API.
+   * Only use this with numbers/data you are authorized to query.
+   */
+
+  const caller =
+    data.eyecon?.caller_info?.data?.[0];
+
+  const photo =
+    data.eyecon?.profile_picture?.photo_url;
+
+
+  if (caller || photo) {
+
+    callerCard.classList.remove("hidden");
+
+    callerInfo.innerHTML = `
+      <div class="profile">
+
+        ${
+          photo
+            ? `<img
+                src="${escapeHTML(photo)}"
+                alt="Profile"
+                referrerpolicy="no-referrer"
+              >`
+            : ""
+        }
+
+        <div>
+
+          ${
+            caller?.name
+              ? `<h3>${escapeHTML(caller.name)}</h3>`
+              : ""
+          }
+
+          ${
+            caller?.type
+              ? `<p>${escapeHTML(caller.type)}</p>`
+              : ""
+          }
+
+        </div>
+
+      </div>
+    `;
+
+  }
+
+
+  const socials = data.social_links || {};
+  const socialEntries = Object.entries(socials)
+    .filter(([_, item]) => item?.url);
+
+
+  if (socialEntries.length) {
+
+    socialCard.classList.remove("hidden");
+
+    socialLinks.innerHTML =
+      socialEntries.map(([name, item]) => `
+        <a
+          href="${escapeHTML(item.url)}"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          ${escapeHTML(item.message || name)}
+        </a>
+      `).join("");
+
+  }
+
+
+  const tc = data.truecaller;
+
+  if (tc) {
+
+    truecallerCard.classList.remove("hidden");
+
+    truecallerInfo.innerHTML = `
+      <div class="item">
+
+        <span>Status</span>
+
+        <strong class="${
+          tc.status === "success"
+            ? "success-text"
+            : "error-text"
+        }">
+          ${escapeHTML(tc.status)}
+        </strong>
+
+      </div>
+
+      ${
+        tc.data
+          ? `
+            <div class="api-response">
+              ${escapeHTML(
+                typeof tc.data === "string"
+                  ? tc.data
+                  : JSON.stringify(tc.data)
+              )}
+            </div>
+          `
+          : ""
+      }
+    `;
+
+  }
+
+}
+</script>
+
+</body>
+</html>
